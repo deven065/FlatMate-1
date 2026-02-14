@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { db } from "../../firebase";
 import { ref, onValue } from "firebase/database";
-import { FaDownload, FaEye, FaFileExport, FaFilter, FaChevronLeft, FaChevronRight } from "react-icons/fa";
+import { FaFileExport, FaFilter, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import jsPDF from "jspdf";
 import { openReceiptPrintWindow } from "../../utils/receipt";
 import { useToast } from "../Toast/useToast";
@@ -56,8 +56,17 @@ export default function RecentPayments() {
             'manual edit': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 border border-gray-300/50',
             unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 border border-gray-300/50',
         };
+        const displayNames = {
+            upi: 'UPI',
+            cash: 'Cash',
+            card: 'Card',
+            'bank transfer': 'Bank Transfer',
+            'manual edit': 'Manual Edit',
+            unknown: 'Unknown',
+        };
         const cls = map[m] || map.unknown;
-        return <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${cls}`}>{method || 'Unknown'}</span>;
+        const displayName = displayNames[m] || (method || 'Unknown');
+        return <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${cls}`}>{displayName}</span>;
     };
 
     const LateBadge = ({ p }) => {
@@ -272,14 +281,10 @@ export default function RecentPayments() {
                             </div>
                             <div className="text-right font-semibold">{formatCurrency(p.amount)}</div>
                         </div>
-                        <div className="mt-2 flex items-center justify-between text-xs">
+                        <div className="mt-2 text-xs">
                             <button className="font-mono truncate text-left" title="Click to copy receipt" onClick={() => handleCopyReceipt(p.receipt)} aria-label="Copy receipt">
                                 {p.receipt}
                             </button>
-                            <div className="flex gap-3">
-                                <FaEye className="cursor-pointer hover:text-blue-600" title="View" aria-label="View receipt" onClick={() => handleView(p)} />
-                                <FaDownload className="cursor-pointer hover:text-blue-600" title="Download" aria-label="Download receipt" onClick={() => handleDownload(p)} />
-                            </div>
                         </div>
                     </div>
                 ))}
@@ -298,7 +303,6 @@ export default function RecentPayments() {
                             <th className="p-2 w-[120px] text-right">Amount</th>
                             <th className="p-2 w-[120px]">Method</th>
                             <th className="p-2 w-[140px]">Receipt</th>
-                            <th className="p-2 w-[84px]">Action</th>
                         </tr>
                     </thead>
                     <tbody className="text-gray-900 dark:text-gray-100">
@@ -317,17 +321,6 @@ export default function RecentPayments() {
                                     <button className="truncate text-left w-full" title="Click to copy receipt" onClick={() => handleCopyReceipt(p.receipt)} aria-label="Copy receipt">
                                         {p.receipt}
                                     </button>
-                                </td>
-                                <td className="p-2">
-                                    <div className="flex justify-end gap-2">
-                                        <FaEye className="cursor-pointer hover:text-blue-600" title="View" aria-label="View receipt" onClick={() => handleView(p)} />
-                                    <FaDownload
-                                        className="cursor-pointer hover:text-blue-600"
-                                            title="Download"
-                                            aria-label="Download receipt"
-                                        onClick={() => handleDownload(p)}
-                                    />
-                                    </div>
                                 </td>
                             </tr>
                         ))}

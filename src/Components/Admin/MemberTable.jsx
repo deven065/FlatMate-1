@@ -34,8 +34,58 @@ function MemberTable() {
   const [paying, setPaying] = useState(false);
   const { push: pushToast } = useToast();
   const [config, setConfig] = useState(null);
+  const [recentPayments, setRecentPayments] = useState([]);
 
   const formatCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+
+  // Helper function to check if member has paid for current billing cycle
+  const hasPaidCurrentCycle = (member) => {
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; // 1-12
+    
+    // Find payments for this member in the current month
+    const memberPayments = recentPayments.filter(p => {
+      // Prioritize email matching (most accurate)
+      if (p.email && member.email) {
+        const emailsMatch = p.email.toLowerCase().trim() === member.email.toLowerCase().trim();
+        if (!emailsMatch) return false; // If emails don't match, skip this payment
+      } else if (p.flat && member.flat) {
+        // Only use flat matching if no email is available
+        const flatsMatch = String(p.flat).trim() === String(member.flat).trim();
+        if (!flatsMatch) return false;
+      } else {
+        // No valid identifier to match
+        return false;
+      }
+      
+      // Check if payment is in current month - prioritize createdAt timestamp
+      let paymentDate;
+      if (p.createdAt && typeof p.createdAt === 'number') {
+        paymentDate = new Date(p.createdAt);
+      } else if (p.date) {
+        // Handle DD/MM/YYYY format from en-IN locale
+        const parts = String(p.date).split('/');
+        if (parts.length === 3) {
+          // Convert DD/MM/YYYY to YYYY-MM-DD for proper parsing
+          paymentDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+        } else {
+          // Try direct parsing as fallback
+          paymentDate = new Date(p.date);
+        }
+      } else {
+        return false;
+      }
+      
+      // Check if date is valid and in current month/year
+      if (isNaN(paymentDate.getTime())) return false;
+      
+      return paymentDate.getFullYear() === currentYear && 
+             (paymentDate.getMonth() + 1) === currentMonth;
+    });
+    
+    return memberPayments.length > 0;
+  };
 
   useEffect(() => {
     const membersRef = ref(db, "members");
@@ -65,24 +115,75 @@ function MemberTable() {
     return () => off();
   }, []);
 
+  // Load recent payments to track current cycle payments
+  useEffect(() => {
+    const paymentsRef = ref(db, 'recentPayments');
+    const off = onValue(paymentsRef, (snap) => {
+      const val = snap.val() || {};
+      const list = Object.entries(val).map(([id, p]) => ({ id, ...p }));
+      setRecentPayments(list);
+    });
+    return () => off();
+  }, []);
+
   useEffect(() => {
     const q = searchQuery.toLowerCase();
     let list = members.filter(
       (m) => (m.name || "").toLowerCase().includes(q) || (m.flat || "").toLowerCase().includes(q) || (m.email || "").toLowerCase().includes(q)
     );
     if (showOnlyPending) {
-      list = list.filter((m) => (Number(m.dues) || 0) > 0);
+      list = list.filter((m) => {
+        // If member has already paid for current cycle, not pending
+        if (hasPaidCurrentCycle(m)) return false;
+        
+        // Calculate dues from config (ignore database dues field)
+        let dues = 0;
+        if (config) {
+          const maintenance = Number(config.maintenanceCharge || 0);
+          const water = Number(config.waterCharge || 0);
+          const sinking = Number(config.sinkingFund || 0);
+          dues = maintenance + water + sinking;
+        }
+        
+        // Only pending if dues > 0
+        return dues > 0;
+      });
     }
     setFilteredMembers(list);
-  }, [searchQuery, members, showOnlyPending]);
+  }, [searchQuery, members, showOnlyPending, config, recentPayments]);
 
   const pendingSummary = useMemo(() => {
     const totalMembers = members.length;
-    const pendingList = members.filter((m) => (Number(m.dues) || 0) > 0);
+    const pendingList = members.filter((m) => {
+      // If member has already paid for current cycle, not pending
+      if (hasPaidCurrentCycle(m)) return false;
+      
+      // Calculate dues from config (ignore database dues field)
+      let dues = 0;
+      if (config) {
+        const maintenance = Number(config.maintenanceCharge || 0);
+        const water = Number(config.waterCharge || 0);
+        const sinking = Number(config.sinkingFund || 0);
+        dues = maintenance + water + sinking;
+      }
+      
+      // Only pending if dues > 0
+      return dues > 0;
+    });
     const pendingCount = pendingList.length;
-    const totalPending = pendingList.reduce((sum, m) => sum + (Number(m.dues) || 0), 0);
+    const totalPending = pendingList.reduce((sum, m) => {
+      // Calculate dues from config for each pending member
+      let dues = 0;
+      if (config) {
+        const maintenance = Number(config.maintenanceCharge || 0);
+        const water = Number(config.waterCharge || 0);
+        const sinking = Number(config.sinkingFund || 0);
+        dues = maintenance + water + sinking;
+      }
+      return sum + dues;
+    }, 0);
     return { totalMembers, pendingCount, totalPending };
-  }, [members]);
+  }, [members, config, recentPayments]);
 
   const handleExport = () => {
     const rows = filteredMembers.map((m) => ({
@@ -104,7 +205,7 @@ function MemberTable() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `members-${showOnlyPending ? 'pending' : 'all'}-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = 'Members List.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -118,8 +219,16 @@ function MemberTable() {
     if (!name.trim() || !flat.trim() || !email.trim() || !password.trim()) { pushToast({ type: "error", title: "Missing fields", description: "Name, Flat, Email and Password are required." }); return; }
     if (!emailRegex.test(email)) { pushToast({ type: "error", title: "Invalid email" }); return; }
     if (password.length < 6) { pushToast({ type: "error", title: "Weak password", description: "Min 6 characters" }); return; }
-    const duesNumber = Number(dues);
+    let duesNumber = Number(dues);
     if (!Number.isFinite(duesNumber) || duesNumber < 0) { pushToast({ type: "error", title: "Invalid dues" }); return; }
+    
+    // If dues is 0 or not specified, calculate from config
+    if (duesNumber === 0 && config) {
+      const maintenance = Number(config.maintenanceCharge || 0);
+      const water = Number(config.waterCharge || 0);
+      const sinking = Number(config.sinkingFund || 0);
+      duesNumber = maintenance + water + sinking;
+    }
 
     const auth = getAuth();
     setCreating(true);
@@ -382,7 +491,19 @@ function MemberTable() {
                     />
                   ) : (
                     (() => {
-                      const pending = Number(m.dues) || 0;
+                      // Check if member has paid for current cycle first
+                      if (hasPaidCurrentCycle(m)) {
+                        return <span className="text-green-600 font-semibold">Paid</span>;
+                      }
+                      
+                      // Calculate pending from config (ignore database dues field)
+                      let pending = 0;
+                      if (config) {
+                        const maintenance = Number(config.maintenanceCharge || 0);
+                        const water = Number(config.waterCharge || 0);
+                        const sinking = Number(config.sinkingFund || 0);
+                        pending = maintenance + water + sinking;
+                      }
                       return pending > 0 ? (
                         <span className="text-red-600 font-semibold">{formatCurrency(pending)}</span>
                       ) : (
@@ -430,7 +551,14 @@ function MemberTable() {
             </div>
             <div className="text-sm text-gray-500 dark:text-gray-400 mb-3">{payFor.name} • Flat {payFor.flat}</div>
             {(() => {
-              const pending = Math.max(0, Number(payFor.dues) || 0);
+              let pending = Math.max(0, Number(payFor.dues) || 0);
+              // Only calculate from config if member has never paid
+              if (pending === 0 && config && (Number(payFor.paid) || 0) === 0) {
+                const maintenance = Number(config.maintenanceCharge || 0);
+                const water = Number(config.waterCharge || 0);
+                const sinking = Number(config.sinkingFund || 0);
+                pending = maintenance + water + sinking;
+              }
               const today = new Date();
               const yyyy = today.getFullYear();
               const mm = String(today.getMonth() + 1).padStart(2, '0');

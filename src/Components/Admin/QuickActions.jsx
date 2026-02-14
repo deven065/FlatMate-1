@@ -8,6 +8,7 @@ import {
 import { motion as Motion } from "framer-motion";
 import { useState } from "react";
 import NoticeUploadModal from "./NoticeUploadModal";
+import SendRemindersModal from "./SendRemindersModal";
 import { useToast } from "../Toast/useToast";
 
 const quickActions = [
@@ -41,8 +42,11 @@ const quickActions = [
 export default function QuickActions() {
     const { push } = useToast();
     const [uploadOpen, setUploadOpen] = useState(false);
+    const [remindersOpen, setRemindersOpen] = useState(false);
+    
     const onClick = (label) => {
         if (label === "Upload Notice") { setUploadOpen(true); return; }
+        if (label === "Send Reminders") { setRemindersOpen(true); return; }
         push({ type: "info", title: label, description: "Action triggered." });
     };
     return (
@@ -65,6 +69,7 @@ export default function QuickActions() {
                 </div>
             </div>
             <NoticeUploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+            <SendRemindersModal open={remindersOpen} onClose={() => setRemindersOpen(false)} />
         </>
     );
 }

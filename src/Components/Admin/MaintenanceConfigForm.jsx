@@ -59,37 +59,7 @@ export default function MaintenanceConfigForm() {
             ...(dueDay ? { dueDate: String(dueDay) } : {}),
         });
 
-        // 2. Calculate monthly base charge to add to dues (exclude lateFee; late fee applies only if overdue at payment time)
-        const totalAmount = ["maintenanceCharge", "waterCharge", "sinkingFund"]
-            .reduce((sum, key) => sum + parseFloat(cfg[key] || 0), 0);
-
-        // 3. Update dues in members node
-        const membersSnap = await get(ref(db, "members"));
-        if (membersSnap.exists()) {
-            const updates = {};
-            const members = membersSnap.val();
-            Object.entries(members).forEach(([id, member]) => {
-                const currentDues = parseFloat(member.dues || 0);
-                updates[`members/${id}/dues`] = currentDues + totalAmount;
-            });
-            await update(ref(db), updates);
-        }
-
-        // 4. Update dues in users node (if needed)
-        const usersSnap = await get(ref(db, "users"));
-        if (usersSnap.exists()) {
-            const updates = {};
-            const users = usersSnap.val();
-            Object.entries(users).forEach(([id, user]) => {
-                if (user.role === "member") {
-                    const currentDues = parseFloat(user.dues || 0);
-                    updates[`users/${id}/dues`] = currentDues + totalAmount;
-                }
-            });
-            await update(ref(db), updates);
-        }
-
-        alert("Maintenance configuration saved and dues updated for all members.");
+        alert("Maintenance configuration saved successfully.");
     };
 
     const fields = [

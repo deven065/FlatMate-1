@@ -1,10 +1,10 @@
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { ref, set, get, update } from "firebase/database";
 import { db } from '../firebase';
 import { useState, useEffect } from 'react';
-import { FaUser, FaUserShield, FaHome, FaEnvelope, FaLock, FaUserPlus, FaSignInAlt } from 'react-icons/fa';
+import { FaUser, FaUserShield, FaHome, FaEnvelope, FaLock, FaUserPlus, FaSignInAlt, FaBuilding } from 'react-icons/fa';
 import { motion as Motion } from "framer-motion"
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const SignupPage = () => {
     // keeps track of whether the user is signing up as member or admin
@@ -12,6 +12,9 @@ const SignupPage = () => {
 
     // state for dark mode // default: Light Mode
     const [isDarkMode, setIsDarkMode] = useState(false);
+    
+    // navigation hook
+    const navigate = useNavigate();
 
     // store all input values from the form
     const [formData, setFormData] = useState({
@@ -73,11 +76,15 @@ const SignupPage = () => {
             }
             if(snapshot.exists()){
                 await update(userRef, userData);
-                alert("User data updated successfully.");
+                alert("User data updated successfully. Please click 'Sign in' below to login.");
             } else {
                 await set(userRef, userData);
-                alert(`Signed up successfully as ${formData.role.toUpperCase()}`);
+                alert(`Signed up successfully as ${formData.role.toUpperCase()}. Please click 'Sign in' below to login.`);
             }
+            
+            // Sign out the user after successful signup (without redirecting)
+            await signOut(auth);
+            
         } catch (error) {
             // Handle duplicate email error
             if (error.code === "auth/email-already-in-use") {
@@ -102,7 +109,12 @@ const SignupPage = () => {
                 onSubmit = {handleSubmit}>
                     <input aria-hidden="true" style={{display:'none'}} type="text" name="fake-username" autoComplete="username" />
                     <input aria-hidden="true" style={{display:'none'}} type="password" name="fake-password" autoComplete="current-password" />
-                    <h1 className= "text-2xl font-bold text-center mb-2">FlatMate</h1>
+                    
+                    {/* Logo and Title */}
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                        <FaBuilding className="text-4xl text-blue-500" />
+                        <h1 className="text-3xl font-bold">FlatMate</h1>
+                    </div>
                     <p className = "text-center mb-6 text-sm text-gray-300">
                         Manage your society maintenance with ease
                     </p>

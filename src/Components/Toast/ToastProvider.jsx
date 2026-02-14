@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { ToastContext } from './useToast';
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaExclamationTriangle } from 'react-icons/fa';
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
@@ -10,7 +11,7 @@ export function ToastProvider({ children }) {
 
   const push = useCallback((toast) => {
     const id = crypto.randomUUID();
-    const duration = toast.duration ?? 3000;
+    const duration = toast.duration ?? 4000;
     const item = { id, type: toast.type || 'info', title: toast.title, description: toast.description, duration };
     setToasts((prev) => [...prev, item]);
     if (duration > 0) {
@@ -20,12 +21,27 @@ export function ToastProvider({ children }) {
 
   const api = useMemo(() => ({ push, remove }), [push, remove]);
 
+  const getIcon = (type) => {
+    switch (type) {
+      case 'success':
+        return <FaCheckCircle className="text-green-600" size={20} />;
+      case 'error':
+        return <FaExclamationCircle className="text-red-600" size={20} />;
+      case 'warning':
+        return <FaExclamationTriangle className="text-amber-600" size={20} />;
+      case 'info':
+      default:
+        return <FaInfoCircle className="text-blue-600" size={20} />;
+    }
+  };
+
   return (
     <ToastContext.Provider value={api}>
       {children}
       <div className="toast-stack">
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.type}`}>
+            {getIcon(t.type)}
             <div className="toast-content">
               {t.title && <div className="toast-title">{t.title}</div>}
               {t.description && <div className="toast-desc">{t.description}</div>}

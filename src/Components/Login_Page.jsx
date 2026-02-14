@@ -1,7 +1,7 @@
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { ref, get } from 'firebase/database';
 import { useState, useEffect } from 'react';
-import { FaEnvelope, FaLock, FaSignInAlt, FaUser, FaUserShield } from 'react-icons/fa';
+import { FaEnvelope, FaLock, FaSignInAlt, FaUser, FaUserShield, FaBuilding } from 'react-icons/fa';
 import { motion as Motion } from "framer-motion";
 import { Link, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
@@ -115,7 +115,12 @@ const LoginPage = () => {
             >
                 <input aria-hidden="true" style={{display:'none'}} type="text" name="fake-username" autoComplete="username" />
                <input aria-hidden="true" style={{display:'none'}} type="password" name="fake-password" autoComplete="current-password" />
-                <h1 className="text-2xl font-bold text-center mb-2">Society Maintenance</h1>
+                
+                {/* Logo and Title */}
+                <div className="flex items-center justify-center gap-3 mb-2">
+                    <FaBuilding className="text-4xl text-blue-500" />
+                    <h1 className="text-3xl font-bold">FlatMate</h1>
+                </div>
                 <p className="text-center mb-6 text-sm text-gray-300">
                     Manage your society maintenance with ease
                 </p>

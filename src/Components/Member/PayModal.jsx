@@ -16,13 +16,10 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
   const [cardExpiry, setCardExpiry] = useState("");
   const [cardCVV, setCardCVV] = useState("");
 
-  // compute default total
-  const defaultAmount = Number(dues) > 0
+  // compute total amount to pay (not editable by user)
+  const amount = Number(dues) > 0
     ? Number(dues)
     : Number(profile?.maintenance || 0) + Number(profile?.water || 0) + Number(profile?.sinking || 0);
-
-  // User-editable payment amount
-  const [paymentAmount, setPaymentAmount] = useState(defaultAmount);
 
   useEffect(() => {
     if (!open) {
@@ -30,18 +27,12 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
       setUpiId("");
       setCardName(""); setCardNumber(""); setCardExpiry(""); setCardCVV("");
       setLoading(false);
-      setPaymentAmount(defaultAmount);
-    } else {
-      // Ensure amount shown when modal opens reflects current defaults
-      setPaymentAmount(defaultAmount);
     }
-  }, [open, defaultAmount]);
-
-  const amount = Number(paymentAmount || 0);
+  }, [open]);
 
   const validate = () => {
     if (!method) return "Select a payment method.";
-    if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) return "Enter a valid amount greater than 0.";
+    if (!amount || amount <= 0) return "No amount due to pay.";
     if (method === "upi") {
       if (!upiId || !/^[\w.\-]{3,}@[\w]+$/.test(upiId.trim())) return "Enter a valid UPI ID (e.g. name@bank).";
     }
@@ -71,15 +62,17 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
       const now = Date.now();
       const receiptId = `RCPT-${now}-${Math.floor(Math.random()*9000+1000)}`;
 
-      // determine previous due (if dues prop >0 use that, otherwise defaultAmount)
-      const prevDue = Number(dues) > 0 ? Number(dues) : defaultAmount;
+      // determine previous due
+      const prevDue = Number(dues) > 0 ? Number(dues) : amount;
       const paid = Number(amount);
       const remainingDue = Math.max(0, Number((prevDue - paid).toFixed(2)));
 
       const payment = {
         uid: uid || null,
         email: profile?.email || null,
-        name: profile?.name || profile?.displayName || null,
+        name: profile?.fullName || profile?.name || profile?.displayName || null,
+        member: profile?.fullName || profile?.name || profile?.displayName || null,
+        flat: profile?.flatNumber || profile?.flat || null,
         amount: Number(paid),
         method,
         methodDetails:
@@ -155,19 +148,11 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
             <button onClick={() => setMethod("cash")} className={`flex-1 p-2 rounded border ${method==="cash" ? "bg-blue-600 text-white" : "bg-white"}`}>Cash</button>
           </div>
 
-          {/* Amount input */}
-          <div>
-            <label className="text-sm font-medium">Amount to Pay</label>
-            <input
-              value={paymentAmount}
-              onChange={(e) => {
-                // allow digits and dot
-                const v = e.target.value.replace(/[^\d.]/g, "");
-                setPaymentAmount(v);
-              }}
-              placeholder={String(defaultAmount)}
-              className="w-full p-2 border rounded"
-            />
+          {/* Total Amount Due (Read-only) */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="text-sm font-medium text-gray-600 mb-1">Total Amount Due</div>
+            <div className="text-3xl font-bold text-gray-900">₹{Number(amount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            <div className="text-xs text-gray-500 mt-1">This is your complete outstanding balance</div>
           </div>
 
           {method === "upi" && (

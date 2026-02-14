@@ -97,10 +97,50 @@ const MemberDashboard = () => {
     }, [profile?.email, pushToast]);
 
     const lastPayment = useMemo(() => (payments.length ? payments[payments.length - 1] : null), [payments]);
-    const dues = Number(profile?.dues || 0);
-    const hasDuesRecord = profile?.dues !== undefined && profile?.dues !== null;
-    const isClear = hasDuesRecord && dues <= 0;
     const formatCurrency = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // Helper function to check if member has paid for current billing cycle
+    const hasPaidCurrentCycle = () => {
+        if (!profile?.email) return false;
+        
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const currentMonth = today.getMonth() + 1; // 1-12
+        
+        // Find payments for this member in the current month
+        const memberPayments = payments.filter(p => {
+            // Check email match
+            const emailsMatch = p.email && profile.email && 
+                               p.email.toLowerCase().trim() === profile.email.toLowerCase().trim();
+            if (!emailsMatch) return false;
+            
+            // Check if payment is in current month - prioritize createdAt timestamp
+            let paymentDate;
+            if (p.createdAt && typeof p.createdAt === 'number') {
+                paymentDate = new Date(p.createdAt);
+            } else if (p.date) {
+                // Handle DD/MM/YYYY format from en-IN locale
+                const parts = String(p.date).split('/');
+                if (parts.length === 3) {
+                    // Convert DD/MM/YYYY to YYYY-MM-DD for proper parsing
+                    paymentDate = new Date(`${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`);
+                } else {
+                    // Try direct parsing as fallback
+                    paymentDate = new Date(p.date);
+                }
+            } else {
+                return false;
+            }
+            
+            // Check if date is valid and in current month/year
+            if (isNaN(paymentDate.getTime())) return false;
+            
+            return paymentDate.getFullYear() === currentYear && 
+                   (paymentDate.getMonth() + 1) === currentMonth;
+        });
+        
+        return memberPayments.length > 0;
+    };
 
     // Load maintenance config for breakdown/due date
     useEffect(() => {
@@ -149,9 +189,10 @@ const MemberDashboard = () => {
         };
     }, [config?.dueDateISO, config?.dueDate]);
 
-    // If a dues field exists on the profile, show that (clamped to 0+).
-    // Only fall back to the maintenance config total when there's no dues record yet.
-    const amountDueDisplay = hasDuesRecord ? Math.max(0, dues) : configTotal;
+    // Calculate amount due based on current payment cycle
+    // If member has paid this month, show 0; otherwise show the config total
+    const amountDueDisplay = hasPaidCurrentCycle() ? 0 : configTotal;
+    const isClear = amountDueDisplay === 0; // Member is clear if amount due is 0
 
     // Load society documents
     useEffect(() => {
@@ -295,9 +336,9 @@ const MemberDashboard = () => {
         return (
         <Fragment>
             <div className="min-h-screen flex flex-col bg-[#0f172a]">
-                <MemberHeader profile={profile} />
+                <MemberHeader profile={profile} notices={notices} />
                 <main className="flex-1">
-                    <div className="max-w-6xl mx-auto px-4 py-6">
+                    <div className="max-w-6xl mx-auto px-4 py-6">{/* Tabs */}
                         {/* Tabs */}
                                         <div className="flex items-center gap-2 text-sm mb-5">
                                             <button onClick={() => setActiveTab('Dashboard')} className={`flex items-center gap-2 px-3 py-1 rounded ${activeTab==='Dashboard' ? 'bg-[#374151] text-white' : 'text-gray-400 hover:text-gray-200'}`}>
@@ -451,26 +492,45 @@ const MemberDashboard = () => {
                                             {notices.length === 0 ? (
                                                 <div className="text-sm text-gray-300">No notices available.</div>
                                             ) : (
-                                                notices.map((n) => (
-                                                    <a key={n.id} href={n.url} target="_blank" rel="noreferrer" download className="flex items-center justify-between rounded-md bg-[#2a3340] px-3 py-2 hover:bg-[#253040]">
-                                                        <div className="min-w-0 pr-3">
-                                                            <div className="font-medium text-sm truncate" title={n.title || 'Notice'}>
-                                                                {n.title || 'Notice'}
-                                                                <span className="ml-2 inline-flex gap-1">
-                                                                    {n.urgent ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-600/20 text-red-300 border border-red-700/40">Urgent</span> : null}
-                                                                    {n.important ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-600/20 text-amber-300 border border-amber-700/40">Important</span> : null}
-                                                                </span>
+                                                notices.map((n) => {
+                                                    const Wrapper = n.url ? 'a' : 'div';
+                                                    const wrapperProps = n.url ? {
+                                                        href: n.url,
+                                                        target: "_blank",
+                                                        rel: "noreferrer",
+                                                        download: true
+                                                    } : {};
+                                                    
+                                                    return (
+                                                        <Wrapper key={n.id} {...wrapperProps} className="flex items-center justify-between rounded-md bg-[#2a3340] px-3 py-2 hover:bg-[#253040] transition">
+                                                            <div className="min-w-0 pr-3">
+                                                                <div className="font-medium text-sm truncate" title={n.title || 'Notice'}>
+                                                                    {n.title || 'Notice'}
+                                                                    <span className="ml-2 inline-flex gap-1">
+                                                                        {n.category && (
+                                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded text-white ${
+                                                                                n.category === 'emergency' ? 'bg-red-600' :
+                                                                                n.category === 'maintenance' ? 'bg-blue-600' :
+                                                                                n.category === 'events' ? 'bg-green-600' :
+                                                                                n.category === 'meetings' ? 'bg-purple-600' :
+                                                                                'bg-gray-600'
+                                                                            }`}>
+                                                                                {n.category.charAt(0).toUpperCase() + n.category.slice(1)}
+                                                                            </span>
+                                                                        )}
+                                                                    </span>
+                                                                </div>
+                                                                {(n.noticeDate || n.date || n.createdAt) && (
+                                                                    <div className="text-xs text-gray-300">Date: {formatNoticeDate(n.noticeDate || n.date || n.createdAt)}</div>
+                                                                )}
+                                                                {n.description && (
+                                                                    <div className="text-xs text-gray-400 line-clamp-2">{n.description}</div>
+                                                                )}
                                                             </div>
-                                                            {(n.noticeDate || n.date || n.createdAt) && (
-                                                                <div className="text-xs text-gray-300">Date: {formatNoticeDate(n.noticeDate || n.date || n.createdAt)}</div>
-                                                            )}
-                                                            {n.description && (
-                                                                <div className="text-xs text-gray-400 truncate">{n.description}</div>
-                                                            )}
-                                                        </div>
-                                                        <FaCloudDownloadAlt className="text-gray-400" />
-                                                    </a>
-                                                ))
+                                                            {n.url && <FaCloudDownloadAlt className="text-gray-400 flex-shrink-0" />}
+                                                        </Wrapper>
+                                                    );
+                                                })
                                             )}
                                         </div>
                                     </div>
@@ -591,7 +651,7 @@ const MemberDashboard = () => {
                     onClose={() => setPayOpen(false)}
                     uid={uid}
                     profile={profile}
-                    dues={dues}
+                    dues={amountDueDisplay}
                     onSuccess={(rec) => {
                         pushToast({ type: 'success', title: 'Payment recorded', description: `Receipt ${rec.receipt}` });
                     }}
