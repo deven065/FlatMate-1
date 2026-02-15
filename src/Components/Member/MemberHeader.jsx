@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { auth, db } from '../../firebase';
 import { signOut } from 'firebase/auth';
-import { ref, onValue, update } from 'firebase/database';
+import { ref, onValue, update, remove } from 'firebase/database';
 import { useToast } from '../Toast/useToast';
 import { FaBuilding, FaSignOutAlt, FaMoon, FaSun, FaBell, FaUserCircle, FaTimes } from 'react-icons/fa';
 
@@ -143,6 +143,20 @@ export default function MemberHeader({ profile, notices = [] }) {
     }
   };
 
+  const deleteNotification = async (e, notificationId) => {
+    e.stopPropagation();
+    if (!currentUserId) return;
+    
+    const notificationRef = ref(db, `userNotifications/${currentUserId}/${notificationId}`);
+    try {
+      await remove(notificationRef);
+      pushToast({ type: 'success', title: 'Notification deleted' });
+    } catch (error) {
+      console.error("Error deleting notification:", error);
+      pushToast({ type: 'error', title: 'Failed to delete notification' });
+    }
+  };
+
   const formatNoticeDate = (d) => {
     if (!d) return '';
     try {
@@ -229,7 +243,7 @@ export default function MemberHeader({ profile, notices = [] }) {
                       <div
                         key={notification.id}
                         onClick={() => markAsRead(notification.id)}
-                        className={`block px-3 py-2.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors cursor-pointer ${
+                        className={`block px-3 py-2.5 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
                           isUnread ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                         }`}
                       >
@@ -275,6 +289,13 @@ export default function MemberHeader({ profile, notices = [] }) {
                               {formatNoticeDate(notification.timestamp)}
                             </p>
                           </div>
+                          <button
+                            onClick={(e) => deleteNotification(e, notification.id)}
+                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition flex-shrink-0 p-1"
+                            title="Delete notification"
+                          >
+                            <FaTimes className="text-xs" />
+                          </button>
                         </div>
                       </div>
                     );

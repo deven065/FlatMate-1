@@ -54,12 +54,18 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
             },
           });
 
+          if (!razorpayResult || !razorpayResult.receipt) {
+            throw new Error("Invalid payment response from Razorpay");
+          }
+
           receiptId = razorpayResult.receipt;
           paymentId = razorpayResult.payment_id;
           orderId = razorpayResult.order_id;
         } catch (razorpayError) {
+          console.error("Razorpay payment error:", razorpayError);
           setLoading(false);
-          alert("Payment failed: " + (razorpayError?.message || "Unknown error"));
+          const errorMessage = razorpayError?.message || razorpayError?.error?.description || "Payment processing failed. Please try again.";
+          alert("Payment failed: " + errorMessage);
           return;
         }
       } else {
@@ -97,14 +103,19 @@ const PayModal = ({ open, onClose, uid, profile, dues = 0, onSuccess }) => {
       };
 
       // Save payment to database
-      const paymentsRef = ref(db, "payments");
+      const paymentsRef = ref(db, "recentPayments");
       const newPaymentRef = push(paymentsRef);
       await set(newPaymentRef, payment);
 
-      // Update user's dues
+      // Get current paid amount and update user's profile
       const userRef = ref(db, `users/${uid}`);
+      const userSnapshot = await get(userRef);
+      const currentPaid = Number(userSnapshot.val()?.paid || 0);
+      const newTotalPaid = currentPaid + paid;
+
       await update(userRef, { 
         dues: remainingDue,
+        paid: newTotalPaid,
         lastPayment: now
       });
 

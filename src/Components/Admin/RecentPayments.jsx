@@ -53,6 +53,7 @@ export default function RecentPayments() {
             cash: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300/50',
             card: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-200 border border-indigo-300/50',
             'bank transfer': 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 border border-sky-300/50',
+            razorpay: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200 border border-purple-300/50',
             'manual edit': 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 border border-gray-300/50',
             unknown: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100 border border-gray-300/50',
         };
@@ -61,6 +62,7 @@ export default function RecentPayments() {
             cash: 'Cash',
             card: 'Card',
             'bank transfer': 'Bank Transfer',
+            razorpay: 'Razorpay',
             'manual edit': 'Manual Edit',
             unknown: 'Unknown',
         };

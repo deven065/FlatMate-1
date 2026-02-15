@@ -283,7 +283,7 @@ export default function Header() {
                                     notifications.map((notification) => (
                                         <div 
                                             key={`${notification.type}-${notification.id}`}
-                                            className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 transition ${!notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                                            className={`px-4 py-3 border-b border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition ${!notification.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                                         >
                                             <div className="flex items-start gap-3">
                                                 <div className={`mt-1 p-2 rounded-full ${
@@ -319,9 +319,12 @@ export default function Header() {
                                                             </p>
                                                         </div>
                                                         <button
-                                                            onClick={() => clearNotification(notification.id)}
-                                                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition flex-shrink-0"
-                                                            title="Dismiss"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                clearNotification(notification.id);
+                                                            }}
+                                                            className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition flex-shrink-0 p-1"
+                                                            title="Delete notification"
                                                         >
                                                             <FaTimes className="text-xs" />
                                                         </button>

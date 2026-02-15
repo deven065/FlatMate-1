@@ -1,4 +1,3 @@
-// server/package.json - Optional if you want to run the server independently
 {
   "name": "flatmate-server",
   "version": "1.0.0",
@@ -11,5 +10,11 @@
   },
   "keywords": ["razorpay", "payment", "express"],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "razorpay": "^2.9.2"
+  }
 }

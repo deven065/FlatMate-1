@@ -40,16 +40,22 @@ export const createRazorpayOrder = async (orderData) => {
       body: JSON.stringify(orderData),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server response:', errorText);
+      throw new Error(`Failed to create order: ${response.status} ${response.statusText}`);
+    }
+
     const data = await response.json();
 
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Failed to create order');
+    if (!data.success || !data.order) {
+      throw new Error(data.error || 'Invalid order response from server');
     }
 
     return data.order;
   } catch (error) {
     console.error('Error creating Razorpay order:', error);
-    throw error;
+    throw new Error(error.message || 'Failed to connect to payment server. Please ensure the backend server is running.');
   }
 };
 
@@ -151,12 +157,15 @@ export const processRazorpayPayment = async (paymentData) => {
   try {
     const { amount, name, email, contact, description, notes } = paymentData;
 
+    console.log('Step 1: Loading Razorpay script...');
     // Step 1: Load Razorpay script
     const isScriptLoaded = await loadRazorpayScript();
     if (!isScriptLoaded) {
       throw new Error('Failed to load Razorpay SDK');
     }
+    console.log('Step 1: Razorpay script loaded successfully');
 
+    console.log('Step 2: Creating order on backend...');
     // Step 2: Create order on backend
     const receiptId = `RCPT-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`;
     const order = await createRazorpayOrder({
@@ -165,7 +174,9 @@ export const processRazorpayPayment = async (paymentData) => {
       receipt: receiptId,
       notes: notes || {},
     });
+    console.log('Step 2: Order created:', order);
 
+    console.log('Step 3: Opening Razorpay checkout...');
     // Step 3: Open Razorpay checkout
     const razorpayResponse = await openRazorpayCheckout({
       key: import.meta.env.VITE_RAZORPAY_KEY_ID,
@@ -184,15 +195,18 @@ export const processRazorpayPayment = async (paymentData) => {
         color: '#2563eb', // Blue color matching your app theme
       },
     });
+    console.log('Step 3: Payment completed, response:', razorpayResponse);
 
+    console.log('Step 4: Verifying payment...');
     // Step 4: Verify payment on backend
     const verificationResult = await verifyRazorpayPayment({
       razorpay_order_id: razorpayResponse.razorpay_order_id,
       razorpay_payment_id: razorpayResponse.razorpay_payment_id,
       razorpay_signature: razorpayResponse.razorpay_signature,
     });
+    console.log('Step 4: Payment verified:', verificationResult);
 
-    return {
+    const result = {
       success: true,
       receipt: receiptId,
       order_id: razorpayResponse.razorpay_order_id,
@@ -200,6 +214,8 @@ export const processRazorpayPayment = async (paymentData) => {
       amount: amount,
       verification: verificationResult,
     };
+    console.log('Payment processing complete. Result:', result);
+    return result;
   } catch (error) {
     console.error('Razorpay payment processing error:', error);
     throw error;
